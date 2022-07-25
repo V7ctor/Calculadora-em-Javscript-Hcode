@@ -1,5 +1,14 @@
 class CalculatorController {
     constructor() {
+        /**
+         * last operator e last number vão armazernar último número e último operador
+         * vamos utilizar essas variáveis para quando realizarmos uma equação e clicarmos
+         * em igual e se por ventura clicar em igual novamente, precisamos ter o último número
+         * e o último operador
+         */
+        this._lastOperator = '';
+        this._lastNumber = "";
+        /** ------------------------------------------------------------- */
         this._operation = [];
         this._displayCalcHTML = document.querySelector("#display");
         this._dateHTML = document.querySelector("#data");
@@ -54,10 +63,12 @@ class CalculatorController {
 
     clearAll() {
         this._operation = [];
+        this.setLastNumberToDisplay();
     }
 
     clearEntry() {
         this._operation.pop();
+        this.setLastNumberToDisplay();
     }
 
     setError() {
@@ -81,17 +92,50 @@ class CalculatorController {
     }
 
     /**
-     * método para mostrar o número na tela
+     * método que visa pegar o último item do array, seja ele número ou operador.
+     * Por padrão ele se vai sempre trazer o último operador, mas se definirmos o parâmetro
+     * como false ele trará um número
      */
-    setLastNumberToDisplay() {
-        let lastNumber;
+    getLastItem(isOperator = true) {
 
+        let lastItem;
+
+       
         for (let i = this._operation.length-1; i >= 0; i--) {
-            if (!this.isOperator(this._operation[i])) {
-                lastNumber = this._operation[i];
+            /**
+             * como o método isOperator retorna false ou true, podemos simplesmente passar
+             * como validação o operador pois ele também retorna um booleano
+             */
+            if (this.isOperator(this._operation[i]) == isOperator) {
+                lastItem = this._operation[i];
                 break;
             }
         }
+
+        /**
+         * Em dado momento pode ser que ele retorne o último item como
+         * undefined, nesse momento devemos simplesmente definir que o 
+         * último item deve ser o que está nas variáveis privadas lastOperator
+         * ou lastNumber.
+        */
+
+        if (!lastItem) {
+            lastItem = (isOperator) ? this._lastOperator : this._lastNumber;
+        }
+
+        return lastItem;
+    }
+
+    /**
+     * método para mostrar o número na tela
+     */
+    setLastNumberToDisplay() {
+      
+        let lastNumber = this.getLastItem(false);
+        /**
+         * se não houver nada no último item, então que seja 0 mas nunca nulo.
+         */
+        if(!lastNumber) lastNumber = 0;
 
         this.displayCalc = lastNumber;
     }
@@ -160,9 +204,6 @@ class CalculatorController {
                 this.setLastNumberToDisplay();
             }
         }
-
-        
-
     }
 
     /**
@@ -180,22 +221,81 @@ class CalculatorController {
         }
     }
 
-    calc() {
-        // retira o último item do array 
-        let lastItem = this._operation.pop();
+    /**
+     * método utilizado para realizar cáculo no array
+     */
+    getResult() {
         /* join pega um array e transforma em string, podemos passar 
          * como argumento aquilo que será o separador entre os elementos 
          * do array.
          * já o eval executa uma string, ele pode transformar string em
          * operação aritmética por exemplo.
         */
-        let result = eval(this._operation.join(""));
+        console.log("getResult", this._operation);
+        return eval(this._operation.join(""));
+    }
+
+    calc() {
         /**
-         * após isso zeramos o array e colocamos o novo resultado com o último
-         * elemento digitado pelo usuário
+         * se apertarmos no botão igual para realizar operação de
+         * 2 números, não podemos retirar o último item do array
          */
-        this._operation = [result, lastItem];
+        let lastItem;
+        // pegar último operador
+        this._lastOperator = this.getLastItem();
+
+        if (this._operation.length < 3) {
+            let firstItem = this._operation[0];
+            this._operation = [firstItem, this._lastOperator, this._lastNumber];
+        }
+
+        if (this._operation.length > 3) {
+            /** retira o último item do array 
+             * nesse momento estamos pressupondo que o elemento que vai ser
+             * tirado é um sinal, exemplo: [3 + 4 +], só existirá 4° elemento
+             * se ao invés de clicarmos no igual, clicarmos em um sinal.
+             * Calcula os 3 primeiros elementos, removeremos o 4° elemento para depois
+             * do calculo adicionarmos ao array junto com o resultadom sendo assim:
+             * [resultado, sinal]
+             */
+            lastItem = this._operation.pop();
+            /**
+             * imagina a situação em fazemos uma conta básica ex. [3 + 2 -], automáticamente
+             * ele calcula os 3 primeiros elementos, mas e se apertarmos no igual ?
+             * teoricamente ele deve pegar o último sinal e o último número e realizar equações
+             * a cada vez que apertarmos no igual 
+             */
+            this._lastNumber = this.getResult();
+        } else if (this._operation.length == 3) {
+             /**
+             * a diferença entre os if e elseif é que no if acima a gente guarda o resultado
+             * como último número com o getResult(), quando dois números forem calculados
+             * teremos 3 elementos ex. [3 + 4], ai o último elemento é o 4.
+             */
+            // pegar último número
+            this._lastNumber = this.getLastItem(false);
+        }
+        
+        console.log("último operador: ", this._lastOperator);
+        console.log("último número: ", this._lastNumber);
+        let result = this.getResult();
+
+        // se o último item for porcentagem, entre no if
+        if (lastItem == "%") {
+            result /= 100;
+            this._operation = [result];
+        } else {
+           
+            /**
+             * após isso zeramos o array e colocamos o novo resultado com o último
+             * elemento digitado pelo usuário
+             */
+            this._operation = [result];
+            // o último elemento só deve ser adicionado se ele existir
+            if (lastItem) this._operation.push(lastItem);
+        }
         this.setLastNumberToDisplay();
+
     }
 
     /**
@@ -229,7 +329,7 @@ class CalculatorController {
                 this.addOperation("%");
             break;
             case 'igual':
-
+                this.calc();
             break;
             case 'ponto':
                 this.addOperation(".");
